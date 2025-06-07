@@ -10,7 +10,7 @@ export default function HistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load scans when screen is focused
+  // Cargar escaneos cuando la pantalla está enfocada
   useFocusEffect(
     useCallback(() => {
       loadScans();
@@ -120,44 +120,44 @@ export default function HistoryScreen() {
   };
 
   const renderScanItem = ({ item }: { item: ScanRecord }) => (
-    <View style={styles.scanCard}>
-      <View style={styles.scanHeader}>
-        <View style={styles.scanInfo}>
-          <Text style={styles.scanData} numberOfLines={2}>{item.qr_data}</Text>
+    <View style={styles.tarjetaEscaneo}>
+      <View style={styles.encabezadoEscaneo}>
+        <View style={styles.infoEscaneo}>
+          <Text style={styles.datoEscaneo} numberOfLines={2}>{item.qr_data}</Text>
           
-          {/* Date */}
-          <View style={styles.scanMeta}>
+          {/* Fecha */}
+          <View style={styles.metaEscaneo}>
             <Calendar size={14} color="#666" />
-            <Text style={styles.scanDate}>{formatDate(item.timestamp)}</Text>
+            <Text style={styles.fechaEscaneo}>{formatDate(item.timestamp)}</Text>
           </View>
           
-          {/* Time */}
-          <View style={styles.scanMeta}>
+          {/* Hora */}
+          <View style={styles.metaEscaneo}>
             <Clock size={14} color="#666" />
-            <Text style={styles.scanTime}>{formatTime(item.timestamp)}</Text>
+            <Text style={styles.horaEscaneo}>{formatTime(item.timestamp)}</Text>
           </View>
           
-          {/* Location */}
+          {/* Ubicación */}
           {(item.latitude && item.longitude) && (
-            <View style={styles.scanMeta}>
+            <View style={styles.metaEscaneo}>
               <MapPin size={14} color="#007AFF" />
-              <Text style={styles.scanLocation}>
+              <Text style={styles.ubicacionEscaneo}>
                 {formatLocation(item.latitude, item.longitude)}
               </Text>
             </View>
           )}
         </View>
         
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => shareQR(item.qr_data)}>
+        <View style={styles.botonesAccion}>
+          <TouchableOpacity style={styles.botonAccion} onPress={() => shareQR(item.qr_data)}>
             <Share2 size={18} color="#007AFF" />
           </TouchableOpacity>
           {isURL(item.qr_data) && (
-            <TouchableOpacity style={styles.actionButton} onPress={() => openURL(item.qr_data)}>
+            <TouchableOpacity style={styles.botonAccion} onPress={() => openURL(item.qr_data)}>
               <ExternalLink size={18} color="#34C759" />
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteScan(item.id)}>
+          <TouchableOpacity style={styles.botonAccion} onPress={() => handleDeleteScan(item.id)}>
             <Trash2 size={18} color="#FF3B30" />
           </TouchableOpacity>
         </View>
@@ -166,35 +166,35 @@ export default function HistoryScreen() {
   );
 
   const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
+    <View style={styles.contenedorVacio}>
       <QrCode size={80} color="#C7C7CC" />
-      <Text style={styles.emptyTitle}>No hay escaneos</Text>
-      <Text style={styles.emptyMessage}>
+      <Text style={styles.tituloVacio}>No hay escaneos</Text>
+      <Text style={styles.mensajeVacio}>
         Los códigos QR que escanees aparecerán aquí con fecha, hora y ubicación
       </Text>
-      <TouchableOpacity style={styles.refreshButton} onPress={loadScans}>
+      <TouchableOpacity style={styles.botonActualizar} onPress={loadScans}>
         <RefreshCw size={20} color="white" />
-        <Text style={styles.refreshButtonText}>Actualizar</Text>
+        <Text style={styles.textoBotonActualizar}>Actualizar</Text>
       </TouchableOpacity>
     </View>
   );
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.contenedor}>
+        <View style={styles.contenedorCarga}>
           <QrCode size={60} color="#007AFF" />
-          <Text style={styles.loadingText}>Cargando escaneos...</Text>
+          <Text style={styles.textoCarga}>Cargando escaneos...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Historial de Escaneos</Text>
-        <Text style={styles.headerSubtitle}>
+    <SafeAreaView style={styles.contenedor}>
+      <View style={styles.encabezado}>
+        <Text style={styles.tituloEncabezado}>Historial de Escaneos</Text>
+        <Text style={styles.subtituloEncabezado}>
           {scans.length} código{scans.length !== 1 ? 's' : ''} QR escaneado{scans.length !== 1 ? 's' : ''}
         </Text>
       </View>
@@ -203,7 +203,7 @@ export default function HistoryScreen() {
         data={scans}
         renderItem={renderScanItem}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={styles.contenedorLista}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl 
@@ -220,43 +220,43 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  contenedor: {
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  loadingContainer: {
+  contenedorCarga: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
+  textoCarga: {
     fontSize: 16,
     color: '#666',
     marginTop: 16,
     fontWeight: '500',
   },
-  header: {
+  encabezado: {
     backgroundColor: 'white',
     paddingHorizontal: 20,
     paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
   },
-  headerTitle: {
+  tituloEncabezado: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#1c1c1e',
   },
-  headerSubtitle: {
+  subtituloEncabezado: {
     fontSize: 16,
     color: '#8e8e93',
     marginTop: 4,
   },
-  listContainer: {
+  contenedorLista: {
     padding: 16,
     flexGrow: 1,
   },
-  scanCard: {
+  tarjetaEscaneo: {
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 16,
@@ -272,77 +272,77 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#007AFF',
   },
-  scanHeader: {
+  encabezadoEscaneo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  scanInfo: {
+  infoEscaneo: {
     flex: 1,
     marginRight: 12,
   },
-  scanData: {
+  datoEscaneo: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1c1c1e',
     marginBottom: 12,
     lineHeight: 22,
   },
-  scanMeta: {
+  metaEscaneo: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
   },
-  scanDate: {
+  fechaEscaneo: {
     fontSize: 13,
     color: '#666',
     marginLeft: 6,
     fontWeight: '500',
   },
-  scanTime: {
+  horaEscaneo: {
     fontSize: 13,
     color: '#666',
     marginLeft: 6,
     fontWeight: '500',
   },
-  scanLocation: {
+  ubicacionEscaneo: {
     fontSize: 13,
     color: '#007AFF',
     marginLeft: 6,
     fontWeight: '500',
   },
-  actionButtons: {
+  botonesAccion: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  actionButton: {
+  botonAccion: {
     padding: 8,
     marginLeft: 4,
     borderRadius: 8,
     backgroundColor: '#f8f9fa',
   },
-  emptyContainer: {
+  contenedorVacio: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
     paddingTop: 80,
   },
-  emptyTitle: {
+  tituloVacio: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1c1c1e',
     marginTop: 24,
     marginBottom: 12,
   },
-  emptyMessage: {
+  mensajeVacio: {
     fontSize: 16,
     color: '#8e8e93',
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
   },
-  refreshButton: {
+  botonActualizar: {
     backgroundColor: '#007AFF',
     flexDirection: 'row',
     alignItems: 'center',
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
   },
-  refreshButtonText: {
+  textoBotonActualizar: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',

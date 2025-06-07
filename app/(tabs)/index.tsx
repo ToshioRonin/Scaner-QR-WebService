@@ -32,24 +32,24 @@ export default function ScannerScreen() {
   const [isScanning, setIsScanning] = useState<boolean>(true);
 
   useEffect(() => {
-    initializeApp();
+    inicializarApp();
   }, []);
 
-  const initializeApp = async () => {
+  const inicializarApp = async () => {
     try {
       await database.init();
-      await getLocationPermission();
-      await getCurrentLocation();
+      await obtenerPermisoUbicacion();
+      await obtenerUbicacionActual();
       
-      // Load existing scan count
+      // Cargar conteo de escaneos existentes
       const scans = await database.getScans();
       setScanCount(scans.length);
     } catch (error) {
-      console.error('Error initializing app:', error);
+      console.error('Error al inicializar la app:', error);
     }
   };
 
-  const getLocationPermission = async () => {
+  const obtenerPermisoUbicacion = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       setLocationPermission(status === 'granted');
@@ -62,11 +62,11 @@ export default function ScannerScreen() {
         );
       }
     } catch (error) {
-      console.error('Error requesting location permission:', error);
+      console.error('Error al solicitar permiso de ubicación:', error);
     }
   };
 
-  const getCurrentLocation = async () => {
+  const obtenerUbicacionActual = async () => {
     try {
       if (locationPermission) {
         const loc = await Location.getCurrentPositionAsync({
@@ -75,11 +75,11 @@ export default function ScannerScreen() {
         setLocation(loc);
       }
     } catch (error) {
-      console.error('Error getting location:', error);
+      console.error('Error al obtener ubicación:', error);
     }
   };
 
-  const showNotification = (message: string) => {
+  const mostrarNotificacion = (message: string) => {
     Animated.sequence([
       Animated.timing(notificationOpacity, {
         toValue: 1,
@@ -95,7 +95,7 @@ export default function ScannerScreen() {
     ]).start();
   };
 
-  const formatDateTime = (timestamp: number): string => {
+  const formatearFechaHora = (timestamp: number): string => {
     const date = new Date(timestamp);
     return date.toLocaleString('es-ES', {
       day: '2-digit',
@@ -107,20 +107,20 @@ export default function ScannerScreen() {
     });
   };
 
-  const formatLocation = (lat: number | null, lng: number | null): string => {
+  const formatearUbicacion = (lat: number | null, lng: number | null): string => {
     if (lat && lng) {
       return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     }
     return 'Ubicación no disponible';
   };
 
-  const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+  const manejarCodigoEscaneado = async ({ type, data }: { type: string; data: string }) => {
     if (!isScanning) return;
     
     try {
       setIsScanning(false);
       
-      // Get current location
+      // Obtener ubicación actual
       let currentLocation = location;
       if (locationPermission) {
         try {
@@ -129,7 +129,7 @@ export default function ScannerScreen() {
           });
           setLocation(currentLocation);
         } catch (error) {
-          console.error('Error getting current location:', error);
+          console.error('Error al obtener ubicación actual:', error);
         }
       }
 
@@ -141,28 +141,28 @@ export default function ScannerScreen() {
 
       setLastScan(scanResult);
       
-      // Save to database
-      await saveScanToDatabase(scanResult);
+      // Guardar en base de datos
+      await guardarEscaneoEnBaseDeDatos(scanResult);
       
-      // Update scan count
+      // Actualizar conteo de escaneos
       const scans = await database.getScans();
       setScanCount(scans.length);
       
-      showNotification('Código QR escaneado correctamente');
+      mostrarNotificacion('Código QR escaneado correctamente');
       
-      // Re-enable scanning after a delay
+      // Reactivar el escaneo después de un retraso
       setTimeout(() => {
         setIsScanning(true);
       }, 3000);
       
     } catch (error) {
-      console.error('Error handling scan:', error);
+      console.error('Error al manejar escaneo:', error);
       Alert.alert('Error', 'No se pudo procesar el código QR');
       setIsScanning(true);
     }
   };
 
-  const saveScanToDatabase = async (scanResult: ScanResult) => {
+  const guardarEscaneoEnBaseDeDatos = async (scanResult: ScanResult) => {
     try {
       const scanData = {
         qr_data: scanResult.data,
@@ -174,32 +174,32 @@ export default function ScannerScreen() {
       };
 
       const id = await database.addScan(scanData);
-      console.log('Scan saved successfully with ID:', id);
+      console.log('Escaneo guardado exitosamente con ID:', id);
     } catch (error) {
-      console.error('Error saving scan:', error);
+      console.error('Error al guardar escaneo:', error);
       throw error;
     }
   };
 
   if (!permission) {
     return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>Solicitando permisos de cámara...</Text>
+      <View style={styles.contenedorPermisos}>
+        <Text style={styles.textoPermisos}>Solicitando permisos de cámara...</Text>
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.permissionContainer}>
-        <View style={styles.permissionContent}>
+      <SafeAreaView style={styles.contenedorPermisos}>
+        <View style={styles.contenidoPermisos}>
           <QrCode size={80} color="#007AFF" />
-          <Text style={styles.permissionTitle}>Acceso a la Cámara</Text>
-          <Text style={styles.permissionMessage}>
+          <Text style={styles.tituloPermisos}>Acceso a la Cámara</Text>
+          <Text style={styles.mensajePermisos}>
             Necesitamos acceso a tu cámara para escanear códigos QR
           </Text>
-          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>Conceder Permisos</Text>
+          <TouchableOpacity style={styles.botonPermisos} onPress={requestPermission}>
+            <Text style={styles.textoBotonPermisos}>Conceder Permisos</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -207,45 +207,45 @@ export default function ScannerScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Notification Banner */}
-      <Animated.View style={[styles.notification, { opacity: notificationOpacity }]}>
+    <SafeAreaView style={styles.contenedor}>
+      {/* Banner de notificación */}
+      <Animated.View style={[styles.notificacion, { opacity: notificationOpacity }]}>
         <Zap size={16} color="white" />
-        <Text style={styles.notificationText}>Código QR escaneado correctamente</Text>
+        <Text style={styles.textoNotificacion}>Código QR escaneado correctamente</Text>
       </Animated.View>
 
-      {/* GPS Info */}
+      {/* Info de GPS */}
       {location && (
-        <View style={styles.gpsInfo}>
+        <View style={styles.infoGPS}>
           <MapPin size={12} color="#34C759" />
-          <Text style={styles.gpsText}>
+          <Text style={styles.textoGPS}>
             GPS: {location.coords.latitude.toFixed(4)}, {location.coords.longitude.toFixed(4)}
           </Text>
         </View>
       )}
 
-      {/* Camera View */}
-      <View style={styles.cameraContainer}>
+      {/* Vista de la cámara */}
+      <View style={styles.contenedorCamara}>
         <CameraView
-          style={styles.camera}
+          style={styles.camara}
           facing="back"
-          onBarcodeScanned={isScanning ? handleBarCodeScanned : undefined}
+          onBarcodeScanned={isScanning ? manejarCodigoEscaneado : undefined}
           barcodeScannerSettings={{
             barcodeTypes: ['qr'],
           }}
         >
-          {/* Scanner Overlay */}
+          {/* Superposición del escáner */}
           <View style={styles.overlay}>
-            <View style={styles.scanArea}>
-              <View style={styles.corner} />
-              <View style={[styles.corner, styles.topRight]} />
-              <View style={[styles.corner, styles.bottomLeft]} />
-              <View style={[styles.corner, styles.bottomRight]} />
+            <View style={styles.areaEscaneo}>
+              <View style={styles.esquina} />
+              <View style={[styles.esquina, styles.superiorDerecha]} />
+              <View style={[styles.esquina, styles.inferiorIzquierda]} />
+              <View style={[styles.esquina, styles.inferiorDerecha]} />
               
-              {/* Scanning indicator */}
+              {/* Indicador de escaneo */}
               {!isScanning && (
-                <View style={styles.scanningIndicator}>
-                  <Text style={styles.scanningText}>Procesando...</Text>
+                <View style={styles.indicadorEscaneo}>
+                  <Text style={styles.textoEscaneo}>Procesando...</Text>
                 </View>
               )}
             </View>
@@ -253,38 +253,38 @@ export default function ScannerScreen() {
         </CameraView>
       </View>
 
-      {/* Bottom Info Panel */}
-      <View style={styles.bottomPanel}>
-        <Text style={styles.instructionText}>
+      {/* Panel inferior de información */}
+      <View style={styles.panelInferior}>
+        <Text style={styles.textoInstruccion}>
           Apunta la cámara hacia un código QR para escanearlo
         </Text>
         
         {scanCount > 0 && (
-          <View style={styles.statsContainer}>
-            <Text style={styles.statsText}>Códigos escaneados: {scanCount}</Text>
+          <View style={styles.contenedorEstadisticas}>
+            <Text style={styles.textoEstadisticas}>Códigos escaneados: {scanCount}</Text>
           </View>
         )}
 
         {lastScan && (
-          <View style={styles.lastScanContainer}>
-            <Text style={styles.lastScanTitle}>Último escaneo:</Text>
-            <Text style={styles.lastScanData} numberOfLines={2}>
+          <View style={styles.contenedorUltimoEscaneo}>
+            <Text style={styles.tituloUltimoEscaneo}>Último escaneo:</Text>
+            <Text style={styles.datoUltimoEscaneo} numberOfLines={2}>
               {lastScan.data}
             </Text>
             
-            {/* Date and Time */}
-            <View style={styles.scanMetaRow}>
+            {/* Fecha y Hora */}
+            <View style={styles.filaMetaEscaneo}>
               <Clock size={14} color="#666" />
-              <Text style={styles.scanMetaText}>
-                {formatDateTime(lastScan.timestamp)}
+              <Text style={styles.textoMetaEscaneo}>
+                {formatearFechaHora(lastScan.timestamp)}
               </Text>
             </View>
             
-            {/* Location */}
-            <View style={styles.scanMetaRow}>
+            {/* Ubicación */}
+            <View style={styles.filaMetaEscaneo}>
               <MapPin size={14} color="#007AFF" />
-              <Text style={styles.scanLocationText}>
-                {formatLocation(
+              <Text style={styles.textoUbicacionEscaneo}>
+                {formatearUbicacion(
                   lastScan.location?.coords.latitude || null,
                   lastScan.location?.coords.longitude || null
                 )}
@@ -298,50 +298,50 @@ export default function ScannerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  contenedor: {
     flex: 1,
     backgroundColor: '#000',
   },
-  permissionContainer: {
+  contenedorPermisos: {
     flex: 1,
     backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  permissionContent: {
+  contenidoPermisos: {
     alignItems: 'center',
     paddingHorizontal: 32,
   },
-  permissionTitle: {
+  tituloPermisos: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1c1c1e',
     marginTop: 24,
     marginBottom: 12,
   },
-  permissionMessage: {
+  mensajePermisos: {
     fontSize: 16,
     color: '#8e8e93',
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
   },
-  permissionButton: {
+  botonPermisos: {
     backgroundColor: '#007AFF',
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 12,
   },
-  permissionButtonText: {
+  textoBotonPermisos: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },
-  permissionText: {
+  textoPermisos: {
     fontSize: 16,
     color: '#666',
   },
-  notification: {
+  notificacion: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -354,13 +354,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     zIndex: 1000,
   },
-  notificationText: {
+  textoNotificacion: {
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
   },
-  gpsInfo: {
+  infoGPS: {
     position: 'absolute',
     top: 60,
     left: 16,
@@ -373,19 +373,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     zIndex: 100,
   },
-  gpsText: {
+  textoGPS: {
     color: 'white',
     fontSize: 12,
     marginLeft: 6,
     fontWeight: '500',
   },
-  cameraContainer: {
+  contenedorCamara: {
     flex: 1,
     margin: 16,
     borderRadius: 16,
     overflow: 'hidden',
   },
-  camera: {
+  camara: {
     flex: 1,
   },
   overlay: {
@@ -393,14 +393,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scanArea: {
+  areaEscaneo: {
     width: 250,
     height: 250,
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  corner: {
+  esquina: {
     position: 'absolute',
     width: 40,
     height: 40,
@@ -410,19 +410,19 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
   },
-  topRight: {
+  superiorDerecha: {
     borderLeftWidth: 0,
     borderRightWidth: 4,
     top: 0,
     right: 0,
   },
-  bottomLeft: {
+  inferiorIzquierda: {
     borderTopWidth: 0,
     borderBottomWidth: 4,
     bottom: 0,
     left: 0,
   },
-  bottomRight: {
+  inferiorDerecha: {
     borderLeftWidth: 0,
     borderRightWidth: 4,
     borderTopWidth: 0,
@@ -430,18 +430,18 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
   },
-  scanningIndicator: {
+  indicadorEscaneo: {
     backgroundColor: 'rgba(0, 122, 255, 0.9)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
   },
-  scanningText: {
+  textoEscaneo: {
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
   },
-  bottomPanel: {
+  panelInferior: {
     backgroundColor: 'white',
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -457,22 +457,22 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  instructionText: {
+  textoInstruccion: {
     fontSize: 16,
     color: '#1c1c1e',
     textAlign: 'center',
     fontWeight: '500',
   },
-  statsContainer: {
+  contenedorEstadisticas: {
     marginTop: 12,
     alignItems: 'center',
   },
-  statsText: {
+  textoEstadisticas: {
     fontSize: 14,
     color: '#34C759',
     fontWeight: '600',
   },
-  lastScanContainer: {
+  contenedorUltimoEscaneo: {
     marginTop: 16,
     padding: 16,
     backgroundColor: '#f8f9fa',
@@ -480,30 +480,30 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#007AFF',
   },
-  lastScanTitle: {
+  tituloUltimoEscaneo: {
     fontSize: 16,
     fontWeight: '700',
     color: '#1c1c1e',
     marginBottom: 8,
   },
-  lastScanData: {
+  datoUltimoEscaneo: {
     fontSize: 14,
     color: '#333',
     marginBottom: 12,
     fontWeight: '500',
   },
-  scanMetaRow: {
+  filaMetaEscaneo: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
   },
-  scanMetaText: {
+  textoMetaEscaneo: {
     fontSize: 12,
     color: '#666',
     marginLeft: 6,
     fontWeight: '500',
   },
-  scanLocationText: {
+  textoUbicacionEscaneo: {
     fontSize: 12,
     color: '#007AFF',
     marginLeft: 6,
