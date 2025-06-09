@@ -3,232 +3,123 @@ import { Platform } from 'react-native';
 // Interfaz para el registro de escaneos QR
 export interface ScanRecord {
   id: number;
-  qr_data: string;       // Datos del código QR escaneado
+  qr_data: string;        // Datos del código QR escaneado
   latitude: number | null;  // Coordenada de latitud (si está disponible)
   longitude: number | null; // Coordenada de longitud (si está disponible)
   altitude: number | null;  // Altitud (si está disponible)
   accuracy: number | null;  // Precisión de la ubicación (si está disponible)
-  timestamp: number;     // Marca de tiempo del escaneo
-  created_at: string;    // Fecha de creación en formato ISO
+  timestamp: number;      // Marca de tiempo del escaneo (puede ser UNIX timestamp)
+  created_at: string;     // Fecha de creación en formato ISO (gestionada por el backend)
 }
 
-// Implementación para almacenamiento web (usando localStorage)
-class WebStorage {
-  private storageKey = 'qr_scanner_data';
-  private scans: ScanRecord[] = [];
-  private nextId = 1;
+const API_BASE_URL = 'http://192.168.1.183:3000'; 
+
+// Clase ApiService que se comunica con el backend remoto
+class ApiService {
+  private initialized: boolean = false;
+
+  async init(): Promise<void> {
+    if (!this.initialized) {
+      console.log('API Service initialized, connecting to:', API_BASE_URL);
+      this.initialized = true;
+    }
+  }
 
   /**
-   * Inicializa el almacenamiento web cargando datos existentes
-   * de localStorage o creando una nueva estructura si no existe
+   * Obtiene todos los escaneos desde el web service.
    */
-  async init(): Promise<void> {
+  async getScans(): Promise<ScanRecord[]> {
     try {
-      const stored = localStorage.getItem(this.storageKey);
-      if (stored) {
-        const data = JSON.parse(stored);
-        this.scans = data.scans || [];
-        this.nextId = data.nextId || 1;
+      const response = await fetch(`${API_BASE_URL}/scans`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
       }
+      const data: ScanRecord[] = await response.json();
+      return data;
     } catch (error) {
-      console.error('Error cargando almacenamiento web:', error);
-      this.scans = [];
-      this.nextId = 1;
+      console.error('Error fetching scans:', error);
+      throw error; 
     }
   }
 
   /**
-   * Guarda los escaneos en localStorage
+   * Añade un nuevo escaneo QR al web service.
+   * @param scanData Datos del escaneo (sin ID ni fecha de creación, los asigna el backend)
+   * @returns ID del nuevo escaneo asignado por el servidor
    */
-  private save(): void {
+  async addScan(scanData: Omit<ScanRecord, 'id' | 'created_at'>): Promise<number> {
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify({
-        scans: this.scans,
-        nextId: this.nextId
-      }));
+      const response = await fetch(`${API_BASE_URL}/scans`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          qr_data: scanData.qr_data,
+          latitude: scanData.latitude,
+          longitude: scanData.longitude,
+          altitude: scanData.altitude,
+          accuracy: scanData.accuracy,
+          timestamp: scanData.timestamp, 
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
+      }
+      const newScan: ScanRecord = await response.json();
+      return newScan.id;
     } catch (error) {
-      console.error('Error guardando en almacenamiento web:', error);
+      console.error('Error adding scan:', error);
+      throw error;
     }
   }
 
   /**
-   * Obtiene todos los escaneos ordenados por fecha (más reciente primero)
-   */
-  async getScans(): Promise<ScanRecord[]> {
-    return [...this.scans].sort((a, b) => b.timestamp - a.timestamp);
-  }
-
-  /**
-   * Añade un nuevo escaneo QR al almacenamiento
-   * @param scanData Datos del escaneo (sin ID ni fecha de creación)
-   * @returns ID del nuevo escaneo
-   */
-  async addScan(scanData: Omit<ScanRecord, 'id' | 'created_at'>): Promise<number> {
-    const newScan: ScanRecord = {
-      ...scanData,
-      id: this.nextId++,
-      created_at: new Date().toISOString()
-    };
-    this.scans.push(newScan);
-    this.save();
-    return newScan.id;
-  }
-
-  /**
-   * Elimina un escaneo por su ID
+   * Elimina un escaneo por su ID del web service.
    * @param id ID del escaneo a eliminar
    * @returns Verdadero si se eliminó correctamente
    */
   async deleteScan(id: number): Promise<boolean> {
-    const initialLength = this.scans.length;
-    this.scans = this.scans.filter(scan => scan.id !== id);
-    const deleted = this.scans.length < initialLength;
-    if (deleted) {
-      this.save();
-    }
-    return deleted;
-  }
-
-  /**
-   * Busca un escaneo por su ID
-   * @param id ID del escaneo a buscar
-   * @returns El escaneo encontrado o null si no existe
-   */
-  async getScanById(id: number): Promise<ScanRecord | null> {
-    return this.scans.find(scan => scan.id === id) || null;
-  }
-}
-
-// Implementación para almacenamiento móvil (usando SQLite)
-class MobileStorage {
-  private db: any = null;
-
-  /**
-   * Inicializa la base de datos SQLite y crea la tabla si no existe
-   */
-  async init(): Promise<void> {
-    if (!this.db) {
-      const SQLite = require('expo-sqlite');
-      this.db = SQLite.openDatabaseSync('qr_scanner.db');
-      
-      await this.db.execAsync(`
-        CREATE TABLE IF NOT EXISTS scans (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          qr_data TEXT NOT NULL,
-          latitude REAL,
-          longitude REAL,
-          altitude REAL,
-          accuracy REAL,
-          timestamp INTEGER NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-      `);
+    try {
+      const response = await fetch(`${API_BASE_URL}/scans/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        if (response.status === 204) {
+          return true; 
+        }
+        throw new Error(`HTTP error! status: ${response.status}, ${response.statusText}`);
+      }
+      return true; 
+    } catch (error) {
+      console.error('Error deleting scan:', error);
+      throw error;
     }
   }
 
   /**
-   * Obtiene todos los escaneos ordenados por fecha (más reciente primero)
-   */
-  async getScans(): Promise<ScanRecord[]> {
-    if (!this.db) throw new Error('Base de datos no inicializada');
-    const result = await this.db.getAllAsync('SELECT * FROM scans ORDER BY timestamp DESC');
-    return result as ScanRecord[];
-  }
-
-  /**
-   * Añade un nuevo escaneo QR a la base de datos
-   * @param scanData Datos del escaneo (sin ID ni fecha de creación)
-   * @returns ID del nuevo escaneo
-   */
-  async addScan(scanData: Omit<ScanRecord, 'id' | 'created_at'>): Promise<number> {
-    if (!this.db) throw new Error('Base de datos no inicializada');
-    
-    const result = await this.db.runAsync(
-      `INSERT INTO scans (qr_data, latitude, longitude, altitude, accuracy, timestamp)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        scanData.qr_data,
-        scanData.latitude,
-        scanData.longitude,
-        scanData.altitude,
-        scanData.accuracy,
-        scanData.timestamp,
-      ]
-    );
-    
-    return result.lastInsertRowId;
-  }
-
-  /**
-   * Elimina un escaneo por su ID
-   * @param id ID del escaneo a eliminar
-   * @returns Verdadero si se eliminó correctamente
-   */
-  async deleteScan(id: number): Promise<boolean> {
-    if (!this.db) throw new Error('Base de datos no inicializada');
-    const result = await this.db.runAsync('DELETE FROM scans WHERE id = ?', [id]);
-    return result.changes > 0;
-  }
-
-  /**
-   * Busca un escaneo por su ID
+   * Busca un escaneo por su ID en el web service.
    * @param id ID del escaneo a buscar
-   * @returns El escaneo encontrado o null si no existe
+   * @returns 
    */
   async getScanById(id: number): Promise<ScanRecord | null> {
-    if (!this.db) throw new Error('Base de datos no inicializada');
-    const result = await this.db.getFirstAsync('SELECT * FROM scans WHERE id = ?', [id]);
-    return result as ScanRecord || null;
+    try {
+      const response = await fetch(`${API_BASE_URL}/scans/${id}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null; 
+        }
+        throw new Error(`HTTP error! status: ${response.status}, ${response.statusText}`);
+      }
+      const scan: ScanRecord = await response.json();
+      return scan;
+    } catch (error) {
+      console.error('Error fetching scan by ID:', error);
+      throw error;
+    }
   }
 }
 
-// Gestor principal de base de datos (patrón singleton)
-class DatabaseManager {
-  private storage: WebStorage | MobileStorage;
-
-  constructor() {
-    // Selecciona automáticamente el almacenamiento adecuado según la plataforma
-    this.storage = Platform.OS === 'web' ? new WebStorage() : new MobileStorage();
-  }
-
-  /**
-   * Inicializa el almacenamiento seleccionado
-   */
-  async init(): Promise<void> {
-    await this.storage.init();
-  }
-
-  /**
-   * Obtiene todos los escaneos ordenados por fecha
-   */
-  async getScans(): Promise<ScanRecord[]> {
-    return this.storage.getScans();
-  }
-
-  /**
-   * Añade un nuevo escaneo QR
-   * @param scanData Datos del escaneo
-   */
-  async addScan(scanData: Omit<ScanRecord, 'id' | 'created_at'>): Promise<number> {
-    return this.storage.addScan(scanData);
-  }
-
-  /**
-   * Elimina un escaneo por su ID
-   * @param id ID del escaneo a eliminar
-   */
-  async deleteScan(id: number): Promise<boolean> {
-    return this.storage.deleteScan(id);
-  }
-
-  /**
-   * Busca un escaneo específico por su ID
-   * @param id ID del escaneo a buscar
-   */
-  async getScanById(id: number): Promise<ScanRecord | null> {
-    return this.storage.getScanById(id);
-  }
-}
-
-// Exporta una instancia única del gestor de base de datos (singleton)
-export const database = new DatabaseManager();
+export const database = new ApiService();
